@@ -116,14 +116,14 @@
             if (isRunning) return;
             isRunning = true;
             lastTimestamp = Date.now();
-            timer = requestAnimationFrame(updateTimer);
+            timer = setInterval(updateTimer, 100); // Проверяем каждые 100мс для точности
             startButton.disabled = true;
             editButton.disabled = true;
         }
 
         function stopTimer() {
             isRunning = false;
-            cancelAnimationFrame(timer);
+            clearInterval(timer);
             startButton.disabled = false;
             editButton.disabled = false;
         }
@@ -134,33 +134,24 @@
             updateTimerDisplay();
         }
 
-        function updateTimer(timestamp) {
+        function updateTimer() {
             if (!isRunning) return;
 
-            // Проверяем видимость страницы
-            if (document.hidden) {
-                // В фоновом режиме используем реальное время
-                const elapsed = Math.floor((Date.now() - lastTimestamp) / 1000);
-                if (elapsed >= 1) {
-                    timeLeft = Math.max(0, timeLeft - elapsed);
-                    lastTimestamp = Date.now();
-                }
-            } else {
-                // В активном режиме используем requestAnimationFrame
-                const elapsed = Math.floor((timestamp - lastTimestamp) / 1000);
-                if (elapsed >= 1) {
-                    timeLeft = Math.max(0, timeLeft - 1);
-                    lastTimestamp = timestamp;
-                }
-            }
+            const currentTime = Date.now();
+            const elapsed = Math.floor((currentTime - lastTimestamp) / 1000);
 
-            updateTimerDisplay();
+            if (elapsed >= 1) {
+                timeLeft = Math.max(0, timeLeft - elapsed);
+                lastTimestamp = currentTime;
+                updateTimerDisplay();
 
-            if (timeLeft === 0) {
-                showNotification();
-                resetTimer();
-            } else {
-                timer = requestAnimationFrame(updateTimer);
+                if (timeLeft === 0) {
+                    showNotification();
+                    playSound();
+                    // Автоматически устанавливаем 4 минуты и продолжаем
+                    timeLeft = 240; // 4 минуты = 240 секунд
+                    updateTimerDisplay();
+                }
             }
         }
 
@@ -171,7 +162,6 @@
         }
 
         function showNotification() {
-            playSound();
             celebrateWithConfetti();
             
             // Показываем системное уведомление
@@ -197,7 +187,6 @@
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && isRunning) {
                 lastTimestamp = Date.now();
-                timer = requestAnimationFrame(updateTimer);
             }
         });
 
@@ -244,6 +233,18 @@
         }
 
         function parseTimeInput(input) {
+            // Убираем все пробелы
+            input = input.replace(/\s/g, '');
+            
+            // Проверяем формат MMSS (например, "0001")
+            if (/^\d{4}$/.test(input)) {
+                const minutes = parseInt(input.slice(0, 2));
+                const seconds = parseInt(input.slice(2));
+                if (seconds >= 60) return null;
+                return minutes * 60 + seconds;
+            }
+            
+            // Проверяем формат MM:SS
             const pattern = /^(\d{1,2}):(\d{2})$/;
             const match = input.match(pattern);
             
@@ -265,7 +266,7 @@
                 timeInput.value = '';
             } else {
                 timeInput.value = '';
-                alert('Пожалуйста, введите время в формате ММ:СС');
+                alert('Пожалуйста, введите время в формате ММ:СС или ММСС (например: 01:30 или 0130)');
             }
         });
 
