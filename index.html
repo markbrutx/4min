@@ -107,10 +107,10 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     
     <script>
+        // Создаем Web Worker для фоновой работы таймера
+        const timerWorker = new Worker('timer-worker.js');
         let isRunning = false;
         let timeLeft = 240;
-        let startTime = 0;
-        let expectedTime = 0;
         const timerDisplay = document.getElementById('timer');
         const timerSound = document.getElementById('timerSound');
         const startButton = document.getElementById('startButton');
@@ -129,15 +129,14 @@
         function startTimer() {
             if (isRunning) return;
             isRunning = true;
-            startTime = performance.now();
-            expectedTime = startTime + (timeLeft * 1000);
-            requestAnimationFrame(updateTimer);
+            timerWorker.postMessage({ command: 'start', timeLeft: timeLeft });
             startButton.disabled = true;
             editButton.disabled = true;
         }
 
         function stopTimer() {
             isRunning = false;
+            timerWorker.postMessage({ command: 'stop' });
             startButton.disabled = false;
             editButton.disabled = false;
         }
@@ -146,27 +145,6 @@
             stopTimer();
             timeLeft = 240;
             updateTimerDisplay();
-        }
-
-        function updateTimer() {
-            if (!isRunning) return;
-
-            const currentTime = performance.now();
-            const remainingMs = Math.max(0, expectedTime - currentTime);
-            timeLeft = Math.ceil(remainingMs / 1000);
-            
-            updateTimerDisplay();
-
-            if (timeLeft === 0) {
-                showNotification();
-                playSound();
-                // Начинаем с 3:59 чтобы компенсировать задержку
-                timeLeft = 239;
-                startTime = performance.now();
-                expectedTime = startTime + (timeLeft * 1000);
-            }
-
-            requestAnimationFrame(updateTimer);
         }
 
         function updateTimerDisplay() {
@@ -182,7 +160,9 @@
             if ('Notification' in window && Notification.permission === 'granted') {
                 new Notification('Время проверить аукцион!', {
                     body: 'Пора посмотреть новые лоты в Top Eleven',
-                    icon: '/favicon.ico'
+                    icon: '/favicon.ico',
+                    requireInteraction: true, // Уведомление не исчезнет автоматически
+                    silent: false // Разрешаем звук уведомления
                 });
             }
         }
@@ -197,6 +177,19 @@
             }
         }
 
+        // Обработчик сообщений от Web Worker
+        timerWorker.onmessage = function(e) {
+            if (e.data.command === 'tick') {
+                timeLeft = e.data.timeLeft;
+                updateTimerDisplay();
+            } else if (e.data.command === 'timeout') {
+                showNotification();
+                playSound();
+                timeLeft = 239;
+                timerWorker.postMessage({ command: 'start', timeLeft: timeLeft });
+            }
+        };
+
         // Обработчик изменения звука
         soundSelect.addEventListener('change', () => {
             timerSound.src = soundSelect.value;
@@ -210,7 +203,7 @@
         // Обработчик видимости страницы
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && isRunning) {
-                startTime = performance.now();
+                timerWorker.postMessage({ command: 'resume' });
             }
         });
 
