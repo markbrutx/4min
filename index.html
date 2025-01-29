@@ -107,10 +107,10 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     
     <script>
-        let timer;
         let isRunning = false;
         let timeLeft = 240;
-        let lastTimestamp = 0;
+        let startTime = 0;
+        let expectedTime = 0;
         const timerDisplay = document.getElementById('timer');
         const timerSound = document.getElementById('timerSound');
         const startButton = document.getElementById('startButton');
@@ -129,7 +129,8 @@
         function startTimer() {
             if (isRunning) return;
             isRunning = true;
-            lastTimestamp = Date.now();
+            startTime = performance.now();
+            expectedTime = startTime + (timeLeft * 1000);
             requestAnimationFrame(updateTimer);
             startButton.disabled = true;
             editButton.disabled = true;
@@ -150,21 +151,19 @@
         function updateTimer() {
             if (!isRunning) return;
 
-            const currentTime = Date.now();
-            const elapsed = Math.floor((currentTime - lastTimestamp) / 1000);
+            const currentTime = performance.now();
+            const remainingMs = Math.max(0, expectedTime - currentTime);
+            timeLeft = Math.ceil(remainingMs / 1000);
+            
+            updateTimerDisplay();
 
-            if (elapsed >= 1) {
-                timeLeft = Math.max(0, timeLeft - elapsed);
-                lastTimestamp = currentTime;
-                updateTimerDisplay();
-
-                if (timeLeft === 0) {
-                    showNotification();
-                    playSound();
-                    // Начинаем с 3:59 чтобы компенсировать задержку
-                    timeLeft = 239; // 3 минуты 59 секунд
-                    updateTimerDisplay();
-                }
+            if (timeLeft === 0) {
+                showNotification();
+                playSound();
+                // Начинаем с 3:59 чтобы компенсировать задержку
+                timeLeft = 239;
+                startTime = performance.now();
+                expectedTime = startTime + (timeLeft * 1000);
             }
 
             requestAnimationFrame(updateTimer);
@@ -211,7 +210,7 @@
         // Обработчик видимости страницы
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && isRunning) {
-                lastTimestamp = Date.now();
+                startTime = performance.now();
             }
         });
 
