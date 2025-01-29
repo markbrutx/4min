@@ -1,40 +1,65 @@
-let timerId = null;
-let timeLeft = 240;
+let timerId = null
+let timeLeft = 240
+let currentMode = 'auto'
+let timestampStart = null
+const TIMER_DURATION = 240
+const INTERVAL_MS = 990
 
-self.onmessage = function(e) {
-    switch (e.data.command) {
-        case 'start':
-            timeLeft = e.data.timeLeft;
-            startTimer();
-            break;
-        case 'stop':
-            stopTimer();
-            break;
-        case 'resume':
-            // Просто продолжаем с текущего времени
-            break;
-    }
-};
+onmessage = function(e) {
+  switch (e.data.command) {
+    case 'start':
+      timeLeft = e.data.timeLeft
+      currentMode = e.data.mode
+      timestampStart = e.data.timestampStart
+      startTimer()
+      break
+    case 'stop':
+      if (currentMode !== 'auto') {
+        stopTimer()
+      }
+      break
+  }
+}
+
+function getCurrentUTCTimestamp() {
+  return Math.floor(Date.now() / 1000)
+}
+
+function calculateTimeLeftFromTimestamp() {
+  const currentTime = getCurrentUTCTimestamp()
+  const elapsedSeconds = currentTime - timestampStart
+  const currentCycleSeconds = elapsedSeconds % TIMER_DURATION
+  return TIMER_DURATION - currentCycleSeconds
+}
+
+let lastTickTime = 0
 
 function startTimer() {
-    stopTimer(); // Очищаем предыдущий таймер если он был
-    
-    timerId = setInterval(() => {
-        timeLeft--;
-        
-        // Отправляем текущее время в основной поток
-        self.postMessage({ command: 'tick', timeLeft: timeLeft });
-        
-        if (timeLeft <= 0) {
-            self.postMessage({ command: 'timeout' });
-            stopTimer();
-        }
-    }, 1000);
+  stopTimer()
+  lastTickTime = Date.now()
+  timerId = setInterval(() => {
+    const now = Date.now()
+    const deltaTime = now - lastTickTime
+    lastTickTime = now
+    const compensation = Math.max(0, Math.floor(deltaTime / 1000) - 1)
+    if (currentMode === 'auto') {
+      timeLeft = calculateTimeLeftFromTimestamp()
+    } else {
+      timeLeft = Math.max(0, timeLeft - (1 + compensation))
+    }
+    postMessage({ command: 'tick', timeLeft })
+    if (timeLeft <= 0) {
+      postMessage({ command: 'timeout' })
+      if (currentMode === 'manual') {
+        stopTimer()
+      }
+    }
+  }, INTERVAL_MS)
 }
 
 function stopTimer() {
-    if (timerId !== null) {
-        clearInterval(timerId);
-        timerId = null;
-    }
+  if (timerId !== null) {
+    clearInterval(timerId)
+    timerId = null
+  }
 }
