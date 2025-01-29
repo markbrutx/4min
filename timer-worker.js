@@ -29,31 +29,49 @@ function calculateTimeLeftFromTimestamp() {
   const currentTime = getCurrentUTCTimestamp()
   const elapsedSeconds = currentTime - timestampStart
   const currentCycleSeconds = elapsedSeconds % TIMER_DURATION
-  return TIMER_DURATION - currentCycleSeconds
+  const timeLeft = TIMER_DURATION - currentCycleSeconds
+  
+  // Если время близко к концу или началу цикла, проверяем точнее
+  if (timeLeft <= 1 || timeLeft >= TIMER_DURATION - 1) {
+    const preciseElapsed = (Date.now() / 1000) - timestampStart
+    const preciseCycle = preciseElapsed % TIMER_DURATION
+    return TIMER_DURATION - preciseCycle
+  }
+  
+  return timeLeft
 }
 
 let lastTickTime = 0
+let lastTimeLeft = timeLeft
 
 function startTimer() {
   stopTimer()
   lastTickTime = Date.now()
+  lastTimeLeft = timeLeft
   timerId = setInterval(() => {
     const now = Date.now()
     const deltaTime = now - lastTickTime
     lastTickTime = now
-    const compensation = Math.max(0, Math.floor(deltaTime / 1000) - 1)
+    
+    let newTimeLeft
     if (currentMode === 'auto') {
-      timeLeft = calculateTimeLeftFromTimestamp()
+      newTimeLeft = calculateTimeLeftFromTimestamp()
     } else {
-      timeLeft = Math.max(0, timeLeft - (1 + compensation))
+      const compensation = Math.max(0, Math.floor(deltaTime / 1000) - 1)
+      newTimeLeft = Math.max(0, timeLeft - (1 + compensation))
     }
-    postMessage({ command: 'tick', timeLeft })
-    if (timeLeft <= 0) {
+    
+    // Проверяем переход через конец цикла
+    if ((lastTimeLeft <= 1 && newTimeLeft > 230) || 
+        (currentMode === 'manual' && newTimeLeft === 0)) {
       postMessage({ command: 'timeout' })
-      if (currentMode === 'manual') {
-        stopTimer()
-      }
     }
+    
+    timeLeft = newTimeLeft
+    lastTimeLeft = timeLeft
+    
+    // Отправляем текущее время
+    postMessage({ command: 'tick', timeLeft })
   }, INTERVAL_MS)
 }
 

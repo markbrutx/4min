@@ -43,6 +43,28 @@
       border-radius: 12px;
       padding: 2rem;
       box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -1px rgba(0,0,0,0.06);
+      display: none;
+    }
+    .start-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 80vh;
+      text-align: center;
+    }
+    .start-button {
+      background: #3b82f6;
+      color: white;
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      font-size: 1.25rem;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      border: none;
+    }
+    .start-button:hover {
+      background: #2563eb;
     }
     .timer-display {
       font-family: 'Monaco', monospace;
@@ -93,12 +115,12 @@
 </head>
 <body>
   <div class="container">
-    <div class="market-info">
-      <h1 class="text-xl font-bold mb-2">Таймер аукциона</h1>
-            <p class="text-sm text-gray-400">Я создал этот таймер потому что устал отвлекаться на обновления аукциона. Теперь он сам издаёт звук и показывает конфетти когда пора проверить новые лоты.</p>
+    <div class="start-screen" id="startScreen">
+      <h1 class="text-3xl font-bold mb-4">Таймер аукциона</h1>
+      <p class="text-gray-400 mb-8">Нажмите кнопку чтобы начать использовать таймер со звуковыми уведомлениями</p>
+      <button class="start-button" id="startButton">Открыть таймер</button>
     </div>
-
-    <div class="timer-card">
+    <div class="timer-card" id="timerCard">
       <div class="flex items-center justify-center mb-4">
         <select id="modeSelect" class="bg-gray-800 text-white border border-gray-600 rounded-md px-4 py-2 w-48 mr-2">
           <option value="auto">Авто режим</option>
@@ -109,11 +131,11 @@
 
       <div class="flex items-center justify-center mb-4">
         <select id="soundSelect" class="bg-gray-800 text-white border border-gray-600 rounded-md px-4 py-2 w-48">
-          <option value="assets/magic.mp3">Магия</option>
-          <option value="assets/sound1.mp3">Звук1</option>
-          <option value="assets/sound2.mp3">Звук2</option>
-          <option value="assets/sound3.mp3">Звук3</option>
-          <option value="assets/woohoo.mp3">Вуху</option>
+          <option value="magic.mp3">Магия</option>
+          <option value="sound1.mp3">Звук1</option>
+          <option value="sound2.mp3">Звук2</option>
+          <option value="sound3.mp3">Звук3</option>
+          <option value="woohoo.mp3">Вуху</option>
         </select>
         <button id="previewSound" class="ml-2 btn bg-purple-600 hover:bg-purple-700 py-2">🔊</button>
       </div>
@@ -130,21 +152,23 @@
     </div>
   </div>
 
-  <audio id="timerSound" src="assets/magic.mp3" preload="auto"></audio>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script>
     const START_DATE_STRING = 'Wed Jan 29 2025 19:12:00 GMT+0500 (Западный Казахстан)'
     const startDate = new Date(START_DATE_STRING)
     const TIMESTAMP_START = Math.floor(startDate.getTime() / 1000)
-    const TIMER_DURATION = 240
-
-    const timerWorker = new Worker('timer-worker.js')
-    let isRunning = false
     let timeLeft = 240
+    let isRunning = false
     let currentMode = 'auto'
+    const timerWorker = new Worker('timer-worker.js')
+    
+    // Создаем один экземпляр звука
+    let timerSound = new Audio('assets/magic.mp3')
+    timerSound.volume = 0.5
+    let soundInitialized = false
 
+    // Проверяем существование элементов
     const timerDisplay = document.getElementById('timer')
-    const timerSound = document.getElementById('timerSound')
     const startButton = document.getElementById('startButton')
     const stopButton = document.getElementById('stopButton')
     const resetButton = document.getElementById('resetButton')
@@ -153,47 +177,58 @@
     const soundSelect = document.getElementById('soundSelect')
     const previewSound = document.getElementById('previewSound')
     const modeSelect = document.getElementById('modeSelect')
+    const startScreen = document.getElementById('startScreen')
+    const timerCard = document.getElementById('timerCard')
+
+    // Проверяем, что все элементы найдены
+    const elements = {
+      timerDisplay,
+      startButton,
+      stopButton,
+      resetButton,
+      editButton,
+      timeInput,
+      soundSelect,
+      previewSound,
+      modeSelect,
+      startScreen,
+      timerCard
+    }
+
+    for (const [name, element] of Object.entries(elements)) {
+      if (!element) {
+        console.error(`Element not found: ${name}`)
+      }
+    }
 
     if ('Notification' in window) {
       Notification.requestPermission()
     }
 
-    function calculateTimeLeftFromTimestamp() {
-      const currentTime = Math.floor(Date.now() / 1000)
-      const timePassed = currentTime - TIMESTAMP_START
-      const cyclePosition = timePassed % TIMER_DURATION
-      return TIMER_DURATION - cyclePosition
-    }
-
     function startTimer() {
-      if (isRunning) return
-      isRunning = true
-      if (currentMode === 'auto') {
-        timeLeft = calculateTimeLeftFromTimestamp()
+      if (!isRunning) {
+        isRunning = true
+        timerWorker.postMessage({
+          command: 'start',
+          timeLeft: timeLeft,
+          mode: currentMode,
+          timestampStart: TIMESTAMP_START
+        })
+        startButton.disabled = true
+        stopButton.disabled = false
       }
-      timerWorker.postMessage({
-        command: 'start',
-        timeLeft: timeLeft,
-        mode: currentMode,
-        timestampStart: TIMESTAMP_START
-      })
-      startButton.disabled = true
-      editButton.disabled = true
     }
 
     function stopTimer() {
-      if (currentMode === 'auto') return
-      isRunning = false
-      timerWorker.postMessage({ command: 'stop' })
-      startButton.disabled = false
-      editButton.disabled = false
+      if (isRunning) {
+        isRunning = false
+        timerWorker.postMessage({ command: 'stop' })
+        startButton.disabled = false
+        stopButton.disabled = true
+      }
     }
 
     function resetTimer() {
-      if (currentMode === 'auto') {
-        if (!isRunning) startTimer()
-        return
-      }
       stopTimer()
       timeLeft = 240
       updateTimerDisplay()
@@ -202,27 +237,7 @@
     function updateTimerDisplay() {
       const minutes = Math.floor(timeLeft / 60)
       const seconds = timeLeft % 60
-      timerDisplay.textContent = `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`
-    }
-
-    function showNotification() {
-      celebrateWithConfetti()
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Время проверить аукцион!', {
-          body: 'Посмотрите новые лоты',
-          icon: '/favicon.ico',
-          requireInteraction: true,
-          silent: false
-        })
-      }
-    }
-
-    function playSound() {
-      timerSound.currentTime = 0
-      const playPromise = timerSound.play()
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {})
-      }
+      timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
     }
 
     timerWorker.onmessage = function(e) {
@@ -230,26 +245,62 @@
         timeLeft = e.data.timeLeft
         updateTimerDisplay()
       } else if (e.data.command === 'timeout') {
-        showNotification()
         playSound()
-        if (currentMode === 'manual') {
-          timeLeft = 240
-          timerWorker.postMessage({
-            command: 'start',
-            timeLeft: timeLeft,
-            mode: currentMode,
-            timestampStart: TIMESTAMP_START
-          })
+        celebrateWithConfetti()
+        showNotification()
+        
+        // В ручном режиме сбрасываем таймер
+        if (currentMode !== 'auto') {
+          setTimeout(() => {
+            resetTimer()
+            startTimer()
+          }, 1000)
         }
       }
     }
 
+    function playSound() {
+      if (!soundInitialized) {
+        return initSound().then(() => {
+          timerSound.currentTime = 0
+          return timerSound.play()
+        })
+      }
+      
+      timerSound.currentTime = 0
+      return timerSound.play().catch(error => {
+        console.error('Error playing sound:', error)
+      })
+    }
+
+    async function initSound() {
+      try {
+        await timerSound.play()
+        timerSound.pause()
+        timerSound.currentTime = 0
+        soundInitialized = true
+      } catch (error) {
+        console.error('Error initializing sound:', error)
+        // Попробуем еще раз инициализировать при ошибке
+        setTimeout(initSound, 1000)
+      }
+    }
+
     soundSelect.addEventListener('change', () => {
-      timerSound.src = soundSelect.value
+      timerSound = new Audio('assets/' + soundSelect.value)
+      timerSound.volume = 0.5
+      soundInitialized = false // Сбрасываем флаг инициализации
+      initSound() // Реинициализируем звук при смене
     })
 
     previewSound.addEventListener('click', () => {
-      playSound()
+      if (!soundInitialized) {
+        initSound().then(() => {
+          playSound()
+        })
+      } else {
+        playSound()
+      }
     })
 
     document.addEventListener('visibilitychange', () => {
@@ -269,6 +320,18 @@
       fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 })
       fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 })
       fire(0.1, { spread: 120, startVelocity: 45 })
+    }
+
+    function showNotification() {
+      celebrateWithConfetti()
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Время проверить аукцион!', {
+          body: 'Посмотрите новые лоты',
+          icon: '/favicon.ico',
+          requireInteraction: true,
+          silent: false
+        })
+      }
     }
 
     function parseTimeInput(input) {
@@ -319,13 +382,21 @@
     stopButton.addEventListener('click', stopTimer)
     resetButton.addEventListener('click', resetTimer)
 
-    editButton.disabled = true
-    timeInput.disabled = true
-    if (currentMode === 'auto') {
-      stopButton.disabled = true
-      resetButton.disabled = true
+    document.getElementById('startButton').addEventListener('click', async () => {
+      startScreen.style.display = 'none'
+      timerCard.style.display = 'block'
+      
+      // Initialize sound after user interaction
+      await initSound()
+      
+      // Start the timer
       startTimer()
-    }
+    })
+
+    // Initialize UI state
+    startButton.disabled = false
+    stopButton.disabled = true
+    updateTimerDisplay()
   </script>
 </body>
 </html>
