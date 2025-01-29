@@ -130,14 +130,13 @@
             if (isRunning) return;
             isRunning = true;
             lastTimestamp = Date.now();
-            timer = setInterval(updateTimer, 100); // Проверяем каждые 100мс для точности
+            requestAnimationFrame(updateTimer);
             startButton.disabled = true;
             editButton.disabled = true;
         }
 
         function stopTimer() {
             isRunning = false;
-            clearInterval(timer);
             startButton.disabled = false;
             editButton.disabled = false;
         }
@@ -167,6 +166,8 @@
                     updateTimerDisplay();
                 }
             }
+
+            requestAnimationFrame(updateTimer);
         }
 
         function updateTimerDisplay() {
