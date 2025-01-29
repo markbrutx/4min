@@ -1,6 +1,6 @@
 # 4min Timer for Top Eleven Auction
 
-👉 [Click here to try Demo](https://canada4k.github.io/4min/) / [Нажми чтобы попробовать](https://canada4k.github.io/4min/)
+👉 [Click here to try Demo](https://markbrutx.github.io/4min/) / [Нажми чтобы попробовать](https://markbrutx.github.io/4min/)
 
 A simple, convenient, and flexible timer tool specifically designed for Top Eleven players who regularly check the transfer market for talented players.
 
