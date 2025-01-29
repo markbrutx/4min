@@ -80,18 +80,30 @@
         <div class="timer-card">
             <div id="timer" class="timer-display">04:00</div>
 
-            <input type="text" id="timeInput" placeholder="ММ:СС" class="input-time"/>
+            <div class="flex items-center justify-center mb-4">
+                <select id="soundSelect" class="bg-gray-800 text-white border border-gray-600 rounded-md px-4 py-2 w-48">
+                    <option value="assets/magic.mp3">Магия</option>
+                    <option value="assets/sound1.mp3">Звук1</option>
+                    <option value="assets/sound2.mp3">Звук2</option>
+                    <option value="assets/sound3.mp3">Звук3</option>
+                    <option value="assets/woohoo.mp3">Вуху</option>
+                </select>
+                <button id="previewSound" class="ml-2 btn bg-purple-600 hover:bg-purple-700 py-2">🔊</button>
+            </div>
 
             <div class="flex flex-wrap justify-center gap-2">
                 <button id="startButton" class="btn bg-blue-600 hover:bg-blue-700">Старт</button>
                 <button id="stopButton" class="btn bg-red-600 hover:bg-red-700">Стоп</button>
                 <button id="resetButton" class="btn bg-gray-600 hover:bg-gray-700">Сброс</button>
-                <button id="editButton" class="btn bg-indigo-600 hover:bg-indigo-700">Изменить</button>
+                <div class="flex items-center">
+                    <input type="text" id="timeInput" placeholder="ММ:СС" class="input-time mr-2"/>
+                    <button id="editButton" class="btn bg-indigo-600 hover:bg-indigo-700">Изменить</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <audio id="timerSound" src="assets/bell.mp3" preload="auto"></audio>
+    <audio id="timerSound" src="assets/magic.mp3" preload="auto"></audio>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     
     <script>
@@ -106,6 +118,8 @@
         const resetButton = document.getElementById('resetButton');
         const editButton = document.getElementById('editButton');
         const timeInput = document.getElementById('timeInput');
+        const soundSelect = document.getElementById('soundSelect');
+        const previewSound = document.getElementById('previewSound');
 
         // Запрашиваем разрешение на уведомления
         if ('Notification' in window) {
@@ -182,6 +196,16 @@
                 });
             }
         }
+
+        // Обработчик изменения звука
+        soundSelect.addEventListener('change', () => {
+            timerSound.src = soundSelect.value;
+        });
+
+        // Обработчик предпрослушивания звука
+        previewSound.addEventListener('click', () => {
+            playSound();
+        });
 
         // Обработчик видимости страницы
         document.addEventListener('visibilitychange', () => {
