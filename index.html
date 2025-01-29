@@ -98,145 +98,162 @@
         let timer;
         let isRunning = false;
         let timeLeft = 240;
+        let lastTimestamp = 0;
         const timerDisplay = document.getElementById('timer');
-        const timeInput = document.getElementById('timeInput');
-        const editButton = document.getElementById('editButton');
+        const timerSound = document.getElementById('timerSound');
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
         const resetButton = document.getElementById('resetButton');
-        const timerSound = document.getElementById('timerSound');
+        const editButton = document.getElementById('editButton');
+        const timeInput = document.getElementById('timeInput');
 
-        Notification.requestPermission();
+        // Запрашиваем разрешение на уведомления
+        if ('Notification' in window) {
+            Notification.requestPermission();
+        }
 
         function startTimer() {
-            if (!isRunning) {
-                isRunning = true;
-                startButton.textContent = 'Пауза';
-                
-                timer = setInterval(() => {
-                    timeLeft--;
-                    updateTimerDisplay();
-
-                    if (timeLeft <= 0) {
-                        showNotification();
-                        playSound();
-                        celebrateWithConfetti();
-                        timeLeft = 240;
-                        updateTimerDisplay();
-                    }
-                }, 1000);
-            } else {
-                clearInterval(timer);
-                isRunning = false;
-                startButton.textContent = 'Старт';
-            }
+            if (isRunning) return;
+            isRunning = true;
+            lastTimestamp = Date.now();
+            timer = requestAnimationFrame(updateTimer);
+            startButton.disabled = true;
+            editButton.disabled = true;
         }
 
         function stopTimer() {
-            clearInterval(timer);
             isRunning = false;
-            startButton.textContent = 'Старт';
+            cancelAnimationFrame(timer);
+            startButton.disabled = false;
+            editButton.disabled = false;
         }
 
         function resetTimer() {
-            clearInterval(timer);
-            isRunning = false;
+            stopTimer();
             timeLeft = 240;
             updateTimerDisplay();
-            startButton.textContent = 'Старт';
+        }
+
+        function updateTimer(timestamp) {
+            if (!isRunning) return;
+
+            // Проверяем видимость страницы
+            if (document.hidden) {
+                // В фоновом режиме используем реальное время
+                const elapsed = Math.floor((Date.now() - lastTimestamp) / 1000);
+                if (elapsed >= 1) {
+                    timeLeft = Math.max(0, timeLeft - elapsed);
+                    lastTimestamp = Date.now();
+                }
+            } else {
+                // В активном режиме используем requestAnimationFrame
+                const elapsed = Math.floor((timestamp - lastTimestamp) / 1000);
+                if (elapsed >= 1) {
+                    timeLeft = Math.max(0, timeLeft - 1);
+                    lastTimestamp = timestamp;
+                }
+            }
+
+            updateTimerDisplay();
+
+            if (timeLeft === 0) {
+                showNotification();
+                resetTimer();
+            } else {
+                timer = requestAnimationFrame(updateTimer);
+            }
         }
 
         function updateTimerDisplay() {
             const minutes = Math.floor(timeLeft / 60);
             const seconds = timeLeft % 60;
-            timerDisplay.textContent = 
-                `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }
 
-        async function showNotification() {
-            try {
-                if (!("Notification" in window)) {
-                    console.log("Браузер не поддерживает уведомления");
-                    return;
-                }
-                if (Notification.permission === "granted") {
-                    new Notification("Обновление аукциона", {
-                        body: "Новые лоты доступны"
-                    });
-                } else if (Notification.permission !== "denied") {
-                    const permission = await Notification.requestPermission();
-                    if (permission === "granted") {
-                        new Notification("Обновление аукциона", {
-                            body: "Новые лоты доступны"
-                        });
-                    }
-                }
-            } catch (error) {
-                console.error("Ошибка уведомления:", error);
+        function showNotification() {
+            playSound();
+            celebrateWithConfetti();
+            
+            // Показываем системное уведомление
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('Время проверить аукцион!', {
+                    body: 'Пора посмотреть новые лоты в Top Eleven',
+                    icon: '/favicon.ico'
+                });
             }
         }
 
         function playSound() {
-            let bellCount = 0;
-            const playBell = () => {
-                timerSound.currentTime = 0;
-                timerSound.play().catch(err => console.error("Не удалось воспроизвести звук:", err));
-                bellCount++;
-                if (bellCount < 2) {
-                    setTimeout(playBell, 1000);
-                }
-            };
-            playBell();
+            timerSound.currentTime = 0;
+            const playPromise = timerSound.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.log("Audio play failed:", error);
+                });
+            }
         }
 
+        // Обработчик видимости страницы
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && isRunning) {
+                lastTimestamp = Date.now();
+                timer = requestAnimationFrame(updateTimer);
+            }
+        });
+
         function celebrateWithConfetti() {
-            const launchConfetti = (delay, config) => {
-                setTimeout(() => {
-                    confetti({
-                        particleCount: 150,
-                        spread: 100,
-                        origin: { y: 0.6 },
-                        colors: ['#3b82f6', '#6366f1', '#ffffff', '#f4f4f4', '#1f2937'],
-                        ...config
-                    });
-                }, delay);
+            const count = 200;
+            const defaults = {
+                origin: { y: 0.7 }
             };
 
-            launchConfetti(0, { 
-                particleCount: 150,
-                spread: 100
+            function fire(particleRatio, opts) {
+                confetti({
+                    ...defaults,
+                    ...opts,
+                    particleCount: Math.floor(count * particleRatio)
+                });
+            }
+
+            fire(0.25, {
+                spread: 26,
+                startVelocity: 55,
             });
 
-            launchConfetti(700, { 
-                particleCount: 100,
-                angle: 60,
-                spread: 80,
-                origin: { x: 0 }
+            fire(0.2, {
+                spread: 60,
             });
-            launchConfetti(700, { 
-                particleCount: 100,
-                angle: 120,
-                spread: 80,
-                origin: { x: 1 }
+
+            fire(0.35, {
+                spread: 100,
+                decay: 0.91,
+                scalar: 0.8
+            });
+
+            fire(0.1, {
+                spread: 120,
+                startVelocity: 25,
+                decay: 0.92,
+                scalar: 1.2
+            });
+
+            fire(0.1, {
+                spread: 120,
+                startVelocity: 45,
             });
         }
 
         function parseTimeInput(input) {
-            let minutes, seconds;
-            if (input.includes(':')) {
-                const parts = input.split(':');
-                if (parts.length !== 2) return null;
-                minutes = parseInt(parts[0], 10);
-                seconds = parseInt(parts[1], 10);
-            } else {
-                const num = parseInt(input, 10);
-                if (isNaN(num)) return null;
-                minutes = Math.floor(num / 100);
-                seconds = num % 100;
-            }
-            if (isNaN(minutes) || isNaN(seconds) || minutes < 0 || seconds < 0 || seconds >= 60) {
-                return null;
-            }
+            const pattern = /^(\d{1,2}):(\d{2})$/;
+            const match = input.match(pattern);
+            
+            if (!match) return null;
+            
+            const minutes = parseInt(match[1]);
+            const seconds = parseInt(match[2]);
+            
+            if (seconds >= 60) return null;
+            
             return minutes * 60 + seconds;
         }
 
@@ -247,7 +264,8 @@
                 updateTimerDisplay();
                 timeInput.value = '';
             } else {
-                alert('Неверный формат. Примеры: 4:00 или 400');
+                timeInput.value = '';
+                alert('Пожалуйста, введите время в формате ММ:СС');
             }
         });
 
