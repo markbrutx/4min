@@ -3,7 +3,7 @@ let timeLeft = 240
 let currentMode = 'auto'
 let timestampStart = null
 const TIMER_DURATION = 240
-const INTERVAL_MS = 990
+const INTERVAL_MS = 999
 
 onmessage = function(e) {
   switch (e.data.command) {
