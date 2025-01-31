@@ -31,7 +31,6 @@ function calculateTimeLeftFromTimestamp() {
   const currentCycleSeconds = elapsedSeconds % TIMER_DURATION
   const timeLeft = TIMER_DURATION - currentCycleSeconds
   
-  // Если время близко к концу или началу цикла, проверяем точнее
   if (timeLeft <= 1 || timeLeft >= TIMER_DURATION - 1) {
     const preciseElapsed = (Date.now() / 1000) - timestampStart
     const preciseCycle = preciseElapsed % TIMER_DURATION
@@ -61,7 +60,6 @@ function startTimer() {
       newTimeLeft = Math.max(0, timeLeft - (1 + compensation))
     }
     
-    // Проверяем переход через конец цикла
     if ((lastTimeLeft <= 1 && newTimeLeft > 230) || 
         (currentMode === 'manual' && newTimeLeft === 0)) {
       postMessage({ command: 'timeout' })
@@ -70,8 +68,7 @@ function startTimer() {
     timeLeft = newTimeLeft
     lastTimeLeft = timeLeft
     
-    // Отправляем текущее время
-    postMessage({ command: 'tick', timeLeft })
+    postMessage({ command: 'tick', timeLeft: Math.round(timeLeft * 100) / 100 })
   }, INTERVAL_MS)
 }
 

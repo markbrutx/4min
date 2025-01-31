@@ -162,12 +162,10 @@
     let currentMode = 'auto'
     const timerWorker = new Worker('timer-worker.js')
     
-    // Создаем один экземпляр звука
     let timerSound = new Audio('assets/magic.mp3')
     timerSound.volume = 0.5
     let soundInitialized = false
 
-    // Проверяем существование элементов
     const timerDisplay = document.getElementById('timer')
     const startButton = document.getElementById('startButton')
     const stopButton = document.getElementById('stopButton')
@@ -180,7 +178,6 @@
     const startScreen = document.getElementById('startScreen')
     const timerCard = document.getElementById('timerCard')
 
-    // Проверяем, что все элементы найдены
     const elements = {
       timerDisplay,
       startButton,
@@ -249,7 +246,6 @@
         celebrateWithConfetti()
         showNotification()
         
-        // В ручном режиме сбрасываем таймер
         if (currentMode !== 'auto') {
           setTimeout(() => {
             resetTimer()
@@ -281,7 +277,6 @@
         soundInitialized = true
       } catch (error) {
         console.error('Error initializing sound:', error)
-        // Попробуем еще раз инициализировать при ошибке
         setTimeout(initSound, 1000)
       }
     }
@@ -386,10 +381,8 @@
       startScreen.style.display = 'none'
       timerCard.style.display = 'block'
       
-      // Initialize sound after user interaction
       await initSound()
       
-      // Start the timer
       startTimer()
     })
 
